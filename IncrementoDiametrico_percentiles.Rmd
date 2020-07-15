@@ -39,8 +39,8 @@ Ncores_spp
 
 # PLOT SUMMARY
 #saveto='G:/Mi unidad/ANALISIS/2018_Redes/Trabajo_JavierOrtega/Parametrizacion/kG/out'
-saveto='G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Parametrizacion/kG/out'
-savefigs=0
+#saveto='G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Parametrizacion/kG/out'
+#savefigs=0
 
 ##############################################
 # CALCULO DE NUMERO DE DATOS POR COLUMNA/ESPECIE
