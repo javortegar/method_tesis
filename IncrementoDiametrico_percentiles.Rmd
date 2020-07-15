@@ -9,24 +9,97 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
 # MATERIALES Y METODOS
 
 ## ESTIMACION DE LA TASA DE CRECIMIENTO
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
+Para estimar el parametro correspondiente a la tasa de crecimiento (kG) se utilizo la base de datos dendrologica del Grupo de Investigaciones Bosque Ciencia, para extraer informacion acerca del incremento diametrico anual (Dinc) para las especies de arboles dominantes de la ecorregion Valdiviana (29 especies). Lo cual permitio calcular, a partir de esta base de datos, el valor maximo de incremento diametrico anual del DAP para cada especie estableciendo tres criterios para su determinacion: el valor maximo en base al percentil 90% (a), el valor maximo en base al percentil 95% (b) y el valor maximo para el percentil 99% (c).
 
 ```{r pressure, echo=FALSE}
-plot(pressure)
+#
+infile <- "G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Parametrizacion/kG/MAX_DBH_CM_GROWTH_DATA_SPP_COMBINED_AGUTIERREZ_SADA_ITRDB.csv"
+data <- read.csv(infile)
+
+# count number of cores per species
+dataList <- data[,-dim(data)[2]]
+sppList <- names(dataList)
+Nspp <- length(sppList)
+Ncores_spp = as.data.frame( matrix(NA, nrow = Nspp, ncol=3) );
+for (i in 1:Nspp){
+  v = unlist(dataList[i])
+  vix = !is.na(v)
+  v   = v[vix]
+  Ncores_spp[i,1] = sppList[i];
+  Ncores_spp[i,2] = length(v);
+  Ncores_spp[i,3] = max(na.omit(dataList[,i]))
+}
+names(Ncores_spp) <- c("spp", "n", "MaxDinc")
+Ncores_spp
+
+# PLOT SUMMARY
+#saveto='G:/Mi unidad/ANALISIS/2018_Redes/Trabajo_JavierOrtega/Parametrizacion/kG/out'
+saveto='G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Parametrizacion/kG/out'
+savefigs=0
+
+##############################################
+# CALCULO DE NUMERO DE DATOS POR COLUMNA/ESPECIE
+##############################################
+
+num_datos = as.data.frame ( matrix(NA, nrow = Nspp, ncol=2));
+for (ii in 1:Nspp){
+  v = unlist(dataList[ii])
+  vix = !is.na(v)
+  v   = v[vix]
+  num_datos[ii,1] = sppList[ii];
+  num_datos[ii,2] = length(na.omit(dataList[,ii]))
+}
+num_datos
+
+
+#############################################
+#OPCION1: CALCULO DE PERCENTIL-90 POR SP.
+#############################################
+
+p90_spp <- as.data.frame(matrix(NA, nrow = Nspp, ncol=2));
+for (ii in 1:Nspp){
+  v = unlist(dataList[ii])
+  vix = !is.na(v)
+  v   = v[vix]
+  p90_spp[ii,1] = sppList[ii];
+  p90_spp[ii,2] = quantile(dataList[,ii], probs=c(0.9), na.rm =TRUE);
+}
+p90_spp <- p90_spp[order(p90_spp$V1),]
+
+############################################
+#OPCION2: CALCULO DE PERCENTIL-95 POR SP
+############################################
+
+p95_spp = as.data.frame( matrix(NA, nrow = Nspp, ncol=2) );
+for (ii in 1:Nspp){
+  v = unlist(dataList[ii])
+  vix = !is.na(v)
+  v   = v[vix]
+  p95_spp[ii,1] = sppList[ii];
+  p95_spp[ii,2] = quantile(dataList[,ii], probs=c(0.95), na.rm =TRUE);
+}
+p95_spp <- p95_spp[order(p95_spp$V1),]
+
+###########################################
+#OPCI?N3: CALCULO DE PERCENTIL-99 POR SP
+#########################################
+
+p99_spp = as.data.frame( matrix(NA, nrow = Nspp, ncol=2) );
+for (ii in 1:Nspp){
+  v = unlist(dataList[ii])
+  vix = !is.na(v)
+  v   = v[vix]
+  p99_spp[ii,1] = sppList[ii];
+  p99_spp[ii,2] = quantile(dataList[,ii], probs=c(0.99), na.rm =TRUE);
+}
+p99_spp <- p99_spp[order(p99_spp$V1),]
+
+DInc_percentiles <- as.data.frame(cbind(spp = p90_spp$V1, "P-90" = p90_spp$V2, "P-95" = p95_spp$V2, "P-99" = p99_spp$V2), stringsAsFactors = FALSE)
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
