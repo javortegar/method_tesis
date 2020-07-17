@@ -1,0 +1,226 @@
+---
+title: "Estimacion_kG_segun_DiamInc"
+author: "Javier Ortega"
+date: "July 13, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# MATERIALES Y METODOS
+
+## ESTIMACION DE LA TASA DE CRECIMIENTO
+
+1. Para estimar el parametro correspondiente a la tasa de crecimiento (kG) se utilizo la base de datos dendrologica del Grupo de Investigaciones Bosque Ciencia, para extraer informacion acerca del incremento diametrico anual (Dinc) para las especies de arboles dominantes de la ecorregion Valdiviana (29 especies). Lo cual permitio calcular, a partir de esta base de datos, el valor maximo de incremento diametrico anual del DAP para cada especie estableciendo tres criterios para su determinacion: el valor maximo en base al percentil 90% (a), el valor maximo en base al percentil 95% (b) y el valor maximo para el percentil 99% (c).
+
+```{r pressure, echo=FALSE}
+#
+infile <- "G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Parametrizacion/kG/MAX_DBH_CM_GROWTH_DATA_SPP_COMBINED_AGUTIERREZ_SADA_ITRDB.csv"
+data <- read.csv(infile)
+
+# count number of cores per species
+dataList <- data[,-dim(data)[2]]
+sppList <- names(dataList)
+Nspp <- length(sppList)
+Ncores_spp = as.data.frame( matrix(NA, nrow = Nspp, ncol=3) );
+for (i in 1:Nspp){
+  v = unlist(dataList[i])
+  vix = !is.na(v)
+  v   = v[vix]
+  Ncores_spp[i,1] = sppList[i];
+  Ncores_spp[i,2] = length(v);
+  Ncores_spp[i,3] = max(na.omit(dataList[,i]))
+}
+names(Ncores_spp) <- c("spp", "n", "MaxDinc")
+Ncores_spp
+
+# PLOT SUMMARY
+#saveto='G:/Mi unidad/ANALISIS/2018_Redes/Trabajo_JavierOrtega/Parametrizacion/kG/out'
+#saveto='G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Parametrizacion/kG/out'
+#savefigs=0
+
+##############################################
+# CALCULO DE NUMERO DE DATOS POR COLUMNA/ESPECIE
+##############################################
+
+num_datos = as.data.frame ( matrix(NA, nrow = Nspp, ncol=2));
+for (ii in 1:Nspp){
+  v = unlist(dataList[ii])
+  vix = !is.na(v)
+  v   = v[vix]
+  num_datos[ii,1] = sppList[ii];
+  num_datos[ii,2] = length(na.omit(dataList[,ii]))
+}
+num_datos
+
+
+#############################################
+#OPCION1: CALCULO DE PERCENTIL-90 POR SP.
+#############################################
+
+p90_spp <- as.data.frame(matrix(NA, nrow = Nspp, ncol=2));
+for (ii in 1:Nspp){
+  v = unlist(dataList[ii])
+  vix = !is.na(v)
+  v   = v[vix]
+  p90_spp[ii,1] = sppList[ii];
+  p90_spp[ii,2] = quantile(dataList[,ii], probs=c(0.9), na.rm =TRUE);
+}
+p90_spp <- p90_spp[order(p90_spp$V1),]
+
+############################################
+#OPCION2: CALCULO DE PERCENTIL-95 POR SP
+############################################
+
+p95_spp = as.data.frame( matrix(NA, nrow = Nspp, ncol=2) );
+for (ii in 1:Nspp){
+  v = unlist(dataList[ii])
+  vix = !is.na(v)
+  v   = v[vix]
+  p95_spp[ii,1] = sppList[ii];
+  p95_spp[ii,2] = quantile(dataList[,ii], probs=c(0.95), na.rm =TRUE);
+}
+p95_spp <- p95_spp[order(p95_spp$V1),]
+
+###########################################
+#OPCI?N3: CALCULO DE PERCENTIL-99 POR SP
+#########################################
+
+p99_spp = as.data.frame( matrix(NA, nrow = Nspp, ncol=2) );
+for (ii in 1:Nspp){
+  v = unlist(dataList[ii])
+  vix = !is.na(v)
+  v   = v[vix]
+  p99_spp[ii,1] = sppList[ii];
+  p99_spp[ii,2] = quantile(dataList[,ii], probs=c(0.99), na.rm =TRUE);
+}
+p99_spp <- p99_spp[order(p99_spp$V1),]
+
+DInc_percentiles <- as.data.frame(cbind(spp = p90_spp$V1, "P-90" = p90_spp$V2, "P-95" = p95_spp$V2, "P-99" = p99_spp$V2), stringsAsFactors = FALSE)
+
+```
+
+2. Posterior al calculo del máximo incremento diamético anual mediante los tres percentiles mencionados anteriormente, se realizo la conversion del valor de incremento diamétrico anual por especie al parametro de tasa de crecimiento especie-especifico (kG) requerido por el modelo. Esta conversion se realizo para todas las especies a parametrizar de manera independiente para el incremento diamétrico anual calculado mediante el percentil 90% (a), el percentil 95% (b) y el percentil 99% (c).
+
+```{r pressure, echo=FALSE}
+
+#############################################################################################################
+## Nica Huber script to assign kG based on top maximum
+## species assigned to two groups: 1: up to 1 cm maximum dInc, 2: up to 2 cm maximum dInc
+#############################################################################################################
+
+mypath <- "G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Parametrizacion/kG"
+TRF <- read.table(file.path(mypath, "Species_TRF_2019_v2.csv"),header=TRUE,sep=",")
+TRF <- TRF[-(45:52),]
+species <- as.character(TRF$KSName)
+
+kG <- TRF$kG
+
+## new kG
+kGi <- c(202,168,194,224,270,210,280,320,280,241,
+         678,440,188,120,275,247,358,270,555,350,
+         235,210,185,295,170,452,575,274,634,430,
+         330,510,655,230,380,200,600,170,260,160,
+         220,235,280,190)
+
+kLa <- TRF$kLa
+kHMax <- 100*TRF$kHMax
+
+## calculate initial height
+kB1 <- 137
+kDBHInit <- 1.27
+kE1 <- 14*kLa+13;               
+kSMin <- 1.3*kLa+39.5;          
+kSIn <- kSMin + 0.75 * kE1;     # initial skinniness
+
+H0 <- kB1 + (kHMax - kB1) * (1 - exp(-kSIn * kDBHInit / (kHMax - kB1)))
+
+col <- c("#FF7F00","blue", "#A6CEE3", "black", "#FDBF6F", "darkgrey", "springgreen", "darkolivegreen", "orangered",
+         "#E31A1C", "#33A02C", "#CAB2D6", "orange1", "#B2DF8A", "orange3", "antiquewhite2", "royalblue", "royalblue4",
+          "turquoise3", "#1F78B4", "honeydew", "yellow", "brown", "#B15928", "darkred", "pink", "#FFFF99", "grey",
+          "#6A3D9A", "purple", "yellowgreen", "deeppink2",1,1,1,1,1,1,1,1,1,1,1,1)
+
+data.sp <- data.frame(species=species,kG=kG,kGi=kGi,kHMax=kHMax,kLa=kLa,H0=H0,col=col)
+data.sp$col <- as.character(data.sp$col)
+
+### optimum growth conditions
+ALH <- 1 #available light 100%
+sGRF <- 1 # species growth reduction factor
+nyears <- 200
+
+dbh.all <- data.frame(Aepu=rep(0,nyears),Amlu=0,Amme=0,Arar=0,Auch=0,Capa=0,Crho=0,Dadi=0,Drwi=0,Emco=0,
+                      Euco=0,Ficu=0,Geav=0,Laph=0,Lofe=0,Luap=0,Mych=0,Myov=0,Mypa=0,Mypl=0,None=0,
+                      Noan=0,Nobe=0,Nodo=0,Noni=0,Noob=0,Nopu=0,Piuv=0,Ponu=0,Saco=0,Test=0,Wetr=0)
+H.all <- dbh.all
+inc.all <- data.frame(Aepu=rep(0,nyears-1),Amlu=0,Amme=0,Arar=0,Auch=0,Capa=0,Crho=0,Dadi=0,Drwi=0,Emco=0,
+                      Euco=0,Ficu=0,Geav=0,Laph=0,Lofe=0,Luap=0,Mych=0,Myov=0,Mypa=0,Mypl=0,None=0,
+                      Noan=0,Nobe=0,Nodo=0,Noni=0,Noob=0,Nopu=0,Piuv=0,Ponu=0,Saco=0,Test=0,Wetr=0)
+Hinc.all <- inc.all
+
+dbh.all.rev <- dbh.all
+H.all.rev <- dbh.all
+inc.all.rev <- inc.all #new dInc
+Hinc.all.rev <- inc.all.rev
+
+
+for (G in c("default","rev")){
+  
+  for (sp in data.sp$species){
+    dat.sp <- data.sp[data.sp$species==sp,]
+    
+    kSMin <- 1.3 * dat.sp$kLa +39.5
+    kE1 <- 14 * dat.sp$kLa + 13
+    gS <- kSMin + kE1 * (1 - ALH) #for ALH=1 --> gS=kSmin
+    
+    dbh.opt <- rep(0,nyears)
+    H.opt <- rep(0,nyears)
+    inc.opt <- rep(0,nyears-1)
+    Hinc.opt <- inc.opt
+    
+    dbh.opt[1] <- kDBHInit # start value
+    H.opt[1] <- dat.sp$H0 #start value
+    
+    for (y in 2:nyears){
+      
+      dbh.y <- dbh.opt[y-1]
+      H.y <- H.opt[y-1]
+      
+      fh <- gS * (1 - (H.y - 1.3)/(dat.sp$kHMax - 1.3))
+      
+      if(G=="default"){
+        deltadbh <- dat.sp$kG * dbh.y * ( (1 - H.y/dat.sp$kHMax) / (2*H.y + fh * dbh.y)) * sGRF
+      } else {
+        deltadbh <- dat.sp$kGi * dbh.y * ( (1 - H.y/dat.sp$kHMax) / (2*H.y + fh * dbh.y)) * sGRF
+      }
+      
+      gFun <- max(0, gS * (1 - (H.y - kB1) / (dat.sp$kHMax - kB1)))
+      
+      dbh.opt[y] <- ifelse(y==1, dbh+deltadbh, dbh.y + deltadbh)
+      H.opt[y] <- ifelse(y==1, H + deltadbh * gFun, H.y + deltadbh * gFun)
+      inc.opt[y-1] <- deltadbh
+      Hinc.opt[y-1] <- H.opt[y]-H.y
+    }
+    
+    if(G=="default"){
+      dbh.all[,sp] <- dbh.opt
+      H.all[,sp] <- H.opt
+      inc.all[,sp] <- inc.opt
+      Hinc.all[,sp] <- Hinc.opt
+    } else {
+      dbh.all.rev[,sp] <- dbh.opt
+      H.all.rev[,sp] <- H.opt
+      inc.all.rev[,sp] <- inc.opt
+      Hinc.all.rev[,sp] <- Hinc.opt
+    }
+
+  } # end species loop
+} # end G loop
+
+## maximum dInc per species
+colMax <- function(data) sapply(data, max, na.rm = TRUE)
+round(colMax(inc.all.rev),2)
+
+```
