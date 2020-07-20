@@ -1,0 +1,295 @@
+---
+title: "Parametrizacion_climatica_sites"
+author: "Javier Ortega"
+date: "July 17, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# MATERIALES Y METODOS
+
+## PARAMETRIZACION CLIMATICA DE LOS SITIOS DE SIMULACION
+
+1. Se utilizaron bases de datos climáticos grillados (e.g. ERA5LAND y CR2MET) correspondientes a los registros mensuales de temperatura media y precipitación acumulada, los que a través de una grilla climática con una resolución espacial de 5-10 km permitieron determinar los valores de precipitación y temperatura para el transecto longitudinal, describiendo estas variables del clima tanto para el territorio nacional como para el territorio argentino. El cálculo de los parámetros climáticos se realizó para un rango de 37 años, desde el año 1979 hasta el 2016.
+
+La obtención de datos climáticos para la parte del transecto longitudinal presente en territorio argentino fue realizada a través de una interpolación espacial de registros de estaciones meteorológicas, debido a la ausencia de cobertura de datos para la grilla climática del CR2MET en las afueras del territorio nacional. Se obtuvieron series mensuales de temperatura media y precipitacion acumulada desde la plataforma del Sistema Nacional de Informacion Hidrica (SNIH) del Ministerio de Obras Publicas del Gobierno de Argentina. Se georreferenciaron las estaciones meteorologicas con disponibilidad de datos, permitiendo realizar una interpolación espacial en formato raster de la precipitación media mensual y la temperatura media mensual para el tramo del transecto longitudinal presente en Argentina. Este procedimiento se repitió para cada mes desde Enero a Diciembre y para cada variable de interés (i.e. temperatura media mensual y precipitación media mensual) solamente para la grilla del CR2MET.
+
+Finalmente, se utilizaron ambas grillas climáticas (i.e. CR2MET y ERA5LAND) para realizar dos parametrizaciones climáticas por cada sitio del transecto longitudinal, obteniendo los parámetros requeridos por ForClim para caracterizar el clima en el área de estudio: la media y la desviación estándar de la precipitacion media mensual, la media y la desviación estándar de la temperatura media mensual, y la correlación entre ambas variables para cada mes. Esto con el fin de realizar una comparación entre ambos forzantes climaticos y determinar el set climático que caracteriza de manera más representativa el clima presente en el gradiente altitudinal descrito por el transecto longitudinal para mi area de estudio.
+
+
+```{r pressure, echo=FALSE}
+
+
+library(raster)
+library(rgdal)
+#install.packages("sp")
+library(sp)
+
+#### CARGAR LOS RASTERS DE PRECIPITACI?N
+
+mypath <- "G:/Mi unidad/2018_Redes/Trabajo_JavierOrtega/CorrerForclim/Tesis/Climate_tesis/datos_CR2/ppmensual"
+
+list.month.ppt <- list()
+list.ppt <- list.files(mypath, pattern = ".tif$")
+for (j in 1:12){
+  dummy <- as.vector(seq(from=(j), to = (38*12), by=12))
+  k <- list.ppt[dummy]
+  stack_month <- unlist(stack(file.path(mypath, k))) #stack temporal que var?a de mes a mes
+  list.month.ppt[[j]] <- stack_month
+}
+
+## ELABORAR UN DATA FRAME DE PPT
+
+mypath <- "G:/Mi unidad/2018_Redes/Trabajo_JavierOrtega/CorrerForclim/Tesis/Climate_tesis"
+
+year <- as.numeric(1979:2016)
+month <- as.numeric(1:12)
+
+#cargar datos de puntos de simulacion: lat, long y n sitio
+data <- read.table("grids_javier_transect_monthly_cr2met_precip.1979.2016.txt", header = FALSE)
+
+lat <- as.numeric(data[1,3:length(data[1,])])
+long <- as.numeric(data[2,3:length(data[1,])])
+
+coord <- data.frame(long) #Los raster del CR2 se extraen usando long-lat, y no al rev?s.
+coord <- as.data.frame(cbind(long, lat))
+
+coord32 <- c(-72.175,	-40.575) #L?MITE ARBOREO
+coord36 <- c(-71.975,	-41.162) #AREA SIN VEGETACI?N
+
+coord[32,] <- coord32; coord[36,] <- coord36
+
+
+firstrows <- c("year", "year", "month", "month") 
+datos.ppt <- as.data.frame(matrix(firstrows, nrow= 2, ncol = 2), stringsAsFactors=FALSE)
+
+a <- as.data.frame(NULL)
+
+for (j in 1:length(years)){
+  dummy <- cbind(rep(years[j], 12), V2=month)
+  a <- rbind(a, dummy)
+}
+
+datos.ppt <- rbind(datos.ppt, a)
+
+for (i in 1:length(coord[,1])){
+  datos.ppt <- cbind(datos.ppt, site = as.numeric(coord[i,])) #Cambiar los nombres de las columnas por site1, site2, ... site n
+}
+
+columnames <- c(sprintf("site0%d",seq(1:9)), sprintf("site%d",seq(from = 10, to= length(coord[,1]))))
+columnames <- c("year", "month", columnames)
+names(datos.ppt) <- columnames
+
+#####Extraer los valores de ppt para el transecto
+
+Nsitio <- c(sprintf("0%d",seq(1:9)), seq(from=10, to = length(coord[,1])))
+
+for (i in 1:12){
+  ppt.monthly <- extract(list.month.ppt[[i]],coord[1:length(Nsitio),])  
+  ppt.monthly <- ppt.monthly/10 #Hay que pasar de mm a cm!!!!!!!!!!!!!!!!!!!!
+  rows <- seq(from=i, to = length(years)*length(month), by=12)
+  dummy <- data.frame(Nsitio)
+  dummy <- cbind(dummy, coord[1:length(Nsitio),])
+  dummy <- cbind(dummy, as.data.frame(ppt.monthly)) #COMO HACER Q IMPRIMA EN EL 1, 13, 25 etc.
+  for (k in 1:length(Nsitio)){
+  ppt_temp <- as.numeric(dummy[k,4:length(dummy[1,])])
+  datos.ppt[rows+2,k+2] <- ppt_temp
+  }
+}
+
+### EXTRAER LOS VALORES DE TEMP EN UN DATA FRAME
+
+mypath <- "G:/Mi unidad/2018_Redes/Trabajo_JavierOrtega/CorrerForclim/Tesis/Climate_tesis/datos_CR2/tmax_mensual"
+
+list.month.tmax <- list()
+list.tmax <- list.files(mypath, pattern = ".tif$")
+for (j in 1:12){
+  dummy <- as.vector(seq(from=(j), to = (38*12), by=12))
+  k <- list.tmax[dummy]
+  stack_month <- unlist(stack(file.path(mypath,k))) #stack temporal que var?a de mes a mes
+  list.month.tmax[[j]] <- stack_month
+}
+
+mypath <- "G:/Mi unidad/2018_Redes/Trabajo_JavierOrtega/CorrerForclim/Tesis/Climate_tesis/datos_CR2/tminmensual"
+
+list.month.tmin <- list()
+list.tmin <- list.files(mypath, pattern = ".tif$")
+for (j in 1:12){
+  dummy <- as.vector(seq(from=(j), to = (38*12), by=12))
+  k <- list.tmin[dummy]
+  stack_month <- unlist(stack(file.path(mypath,k))) #stack temporal que var?a de mes a mes
+  list.month.tmin[[j]] <- stack_month
+}
+
+## Extraer valores de Temperatura max-min y calcular la Temperatura media 
+ 
+datos.T <- as.data.frame(matrix(firstrows, nrow= 2, ncol = 2), stringsAsFactors=FALSE)
+datos.T <- rbind(datos.T, a)
+
+for (i in 1:length(coord[,1])){
+  datos.T <- cbind(datos.T, site = as.numeric(coord[i,])) #Cambiar los nombres de las columnas por site1, site2, ... site n
+}
+
+names(datos.T) <- columnames
+
+for (i in 1:12){
+  tmax.monthly <- extract(list.month.tmax[[i]],coord[1:length(Nsitio),])  
+  tmin.monthly <- extract(list.month.tmin[[i]],coord[1:length(Nsitio),])
+  tmean.monthly <- (tmax.monthly+tmin.monthly)/2
+  rows <- seq(from=i, to = length(year)*length(month), by=12)
+  dummy <- data.frame(Nsitio)
+  dummy <- cbind(dummy, coord[1:length(Nsitio),])
+  dummy <- cbind(dummy, as.data.frame(tmean.monthly)) #COMO HACER Q IMPRIMA EN EL 1, 13, 25 etc.
+  for (k in 1:length(Nsitio)){
+    tmean_temp <- as.numeric(dummy[k,4:length(dummy[1,])])
+    datos.T [rows+2,k+2] <- tmean_temp
+  }
+}
+
+gc() #Esto libera espacio en la memoria del temporal
+
+rm(list=setdiff(ls(),c("datos.ppt", "datos.T", "lat", "long", "coord")))
+
+                            ##### CLIMATIC PARAMETERES CALCULATION
+
+datos.ppt <- datos.ppt[-(1:2),]
+datos.T <- datos.T[-(1:2),]
+
+out <- NULL
+
+datos.ppt <- cbind(datos.ppt, monthSH=1)
+datos.T <- cbind(datos.T, monthSH=1)
+
+for(i in 1:length(datos.ppt[,1])){
+  if (datos.ppt[i,2] == 1)  datos.ppt[i,40] <- 7
+  if (datos.ppt[i,2] == 2)  datos.ppt[i,40] <- 8
+  if (datos.ppt[i,2] == 3)  datos.ppt[i,40] <- 9
+  if (datos.ppt[i,2] == 4)  datos.ppt[i,40] <- 10
+  if (datos.ppt[i,2] == 5)  datos.ppt[i,40] <- 11
+  if (datos.ppt[i,2] == 6)  datos.ppt[i,40] <- 12
+  if (datos.ppt[i,2] == 7)  datos.ppt[i,40] <- 1
+  if (datos.ppt[i,2] == 8)  datos.ppt[i,40] <- 2
+  if (datos.ppt[i,2] == 9)  datos.ppt[i,40] <- 3
+  if (datos.ppt[i,2] == 10)  datos.ppt[i,40] <- 4
+  if (datos.ppt[i,2] == 11)  datos.ppt[i,40] <- 5
+  if (datos.ppt[i,2] == 12)  datos.ppt[i,40] <- 6
+}
+
+for(i in 1:length(datos.T[,1])){ #Se separ? el ciclo en dos ciclos, cambiando el largo de cada uno al tener distinto rango de a?os
+  if (datos.T[i,2] == 1)  datos.T[i,40] <- 7
+  if (datos.T[i,2] == 2)  datos.T[i,40] <- 8
+  if (datos.T[i,2] == 3)  datos.T[i,40] <- 9
+  if (datos.T[i,2] == 4)  datos.T[i,40] <- 10
+  if (datos.T[i,2] == 5)  datos.T[i,40] <- 11
+  if (datos.T[i,2] == 6)  datos.T[i,40] <- 12
+  if (datos.T[i,2] == 7)  datos.T[i,40] <- 1
+  if (datos.T[i,2] == 8)  datos.T[i,40] <- 2
+  if (datos.T[i,2] == 9)  datos.T[i,40] <- 3
+  if (datos.T[i,2] == 10)  datos.T[i,40] <- 4
+  if (datos.T[i,2] == 11)  datos.T[i,40] <- 5
+  if (datos.T[i,2] == 12)  datos.T[i,40] <- 6
+}
+
+
+for (j in 3:length(datos.ppt[1,])){
+  month <- datos.T[,40]
+  T <- datos.T[,j]
+  PPT <- datos.ppt[,j]
+  
+  #calculate ln of precipitation for ForClim v3.0
+  
+  PPT <- log(PPT+1)
+  
+  #calculate monthly mean and sd over all years 
+  mean.ppt <- aggregate(PPT, by = list(month = datos.ppt$monthSH), mean)
+  sd.ppt <- aggregate(PPT, by = list(month = datos.ppt$monthSH), sd)
+  mean.T <- aggregate(datos.T[,j], by = list(month = datos.T$monthSH), mean)
+  sd.T <- aggregate(datos.T[,j], by = list(month = datos.T$monthSH), sd)
+  
+  #calculate year rainfall sum and average T 
+  sum.ppt <- aggregate(datos.ppt[,j]*10, by = list(year = datos.ppt$year), sum) #Esto entrega la suma anual de ppt en milimetros
+  annual.T <- aggregate(datos.T[,j], by = list(year = datos.T$year), mean)
+  
+  #calculate cross correlation for v2.9.3 temperature and ln of precipitation data
+  cross<-cbind(PPT,T)
+  jan<-NULL; feb<-NULL; mar<-NULL; abr<-NULL; may<-NULL; jun<-NULL; jul<-NULL
+  ago<-NULL; sep<-NULL; oct<-NULL; nov<-NULL; dec<-NULL
+  
+  for (x in 1:length(PPT)){
+    if (month[x] == 1)  jan <- rbind(jan, cross[x,])
+    if (month[x] == 2)  feb <- rbind(feb, cross[x,])
+    if (month[x] == 3)  mar <- rbind(mar, cross[x,])
+    if (month[x] == 4)  abr <- rbind(abr, cross[x,])
+    if (month[x] == 5)  may <- rbind(may, cross[x,])
+    if (month[x] == 6)  jun <- rbind(jun, cross[x,])
+    if (month[x] == 7)  jul <- rbind(jul, cross[x,])
+    if (month[x] == 8)  ago <- rbind(ago, cross[x,])
+    if (month[x] == 9)  sep <- rbind(sep, cross[x,])
+    if (month[x] == 10)  oct <- rbind(oct, cross[x,])
+    if (month[x] == 11)  nov <- rbind(nov, cross[x,])
+    if (month[x] == 12)  dec <- rbind(dec, cross[x,])
+  }
+  jan.R <- ccf(jan[,1],jan[,2], type = c("correlation"), lag.max = 1, plot = FALSE, data = x)$acf[2]
+  feb.R <- ccf(feb[,1],feb[,2], type = c("correlation"), lag.max = 1, plot = FALSE, data = x)$acf[2]
+  mar.R <- ccf(mar[,1],mar[,2], type = c("correlation"), lag.max = 1, plot = FALSE, data = x)$acf[2]
+  abr.R <- ccf(abr[,1],abr[,2], type = c("correlation"), lag.max = 1, plot = FALSE, data = x)$acf[2]
+  may.R <- ccf(may[,1],may[,2], type = c("correlation"), lag.max = 1, plot = FALSE, data = x)$acf[2]
+  jun.R <- ccf(jun[,1],jun[,2], type = c("correlation"), lag.max = 1, plot = FALSE, data = x)$acf[2]
+  jul.R <- ccf(jul[,1],jul[,2], type = c("correlation"), lag.max = 1, plot = FALSE, data = x)$acf[2]
+  ago.R <- ccf(ago[,1],ago[,2], type = c("correlation"), lag.max = 1, plot = FALSE, data = x)$acf[2]
+  sep.R <- ccf(sep[,1],sep[,2], type = c("correlation"), lag.max = 1, plot = FALSE, data = x)$acf[2]
+  oct.R <- ccf(oct[,1],oct[,2], type = c("correlation"), lag.max = 1, plot = FALSE, data = x)$acf[2]
+  nov.R <- ccf(nov[,1],nov[,2], type = c("correlation"), lag.max = 1, plot = FALSE, data = x)$acf[2]
+  dec.R <- ccf(dec[,1],dec[,2], type = c("correlation"), lag.max = 1, plot = FALSE, data = x)$acf[2]
+  
+  #select and rename for further calculations
+  crossR <- rbind(jan.R, feb.R, mar.R,abr.R, may.R,jun.R,jul.R, ago.R, sep.R, oct.R, nov.R, dec.R)
+  
+  temp <- cbind(mean.ppt, sd.ppt)
+  ppt.par <- temp[,c(1,2,4)]
+  names(ppt.par)[2] <- "meanPPT"
+  names(ppt.par)[3] <- "sdPPT"
+  
+  temp <- cbind(mean.T, sd.T)
+  T.par <- temp[,c(1,2,4)]
+  names(T.par)[2] <- "meanT"
+  names(T.par)[3] <- "sdT"
+  
+  temp <- cbind(ppt.par, T.par)
+  
+  PARAM <- site.name[j] 
+  PARAM <- append(PARAM, temp$meanT)
+  PARAM <- append(PARAM, temp$sdT)
+  PARAM <- append(PARAM, temp$meanPPT)
+  PARAM <- append(PARAM, temp$sdPPT)
+  PARAM <- append(PARAM, crossR[,1])
+  PARAM <- append(PARAM, mean(sum.ppt$x))
+  PARAM <- append(PARAM, mean(annual.T$x))
+  out <- rbind(out,PARAM)
+}
+
+out <- data.frame(out)
+nombres <- c("site", "mTJan", "mTFeb", "mTMar", "mTApr", "mTMay", "mTJun", "mTJul", "mTAug", "mTSep", "mTOct", "mTNov", "mTDec", "sdTJan", "sdTFeb", "sdTMar", "sdTApr", "sdTMay", "sdTJun", "sdTJul", "sdTAug", "sdTSep", "sdTOct", "sdTNov", "sdTDec", "mPJan", "mPFeb", "mPMar", "mPApr", "mPMay", "mPJun", "mPJul", "mPAug", "mPSep", "mPOct", "mPNov", "mPDec", "sdPJan", "sdPFeb", "sdPMar", "sdPApr", "sdPMay", "sdPJun", "sdPJul", "sdPAug", "sdPSep", "sdPOct", "sdPNov", "sdPDec", "jan.R", "feb.R", "mar.R", "abr.R", "may.R", "jun.R", "jul.R", "ago.R", "sep.R", "oct.R", "nov.R", "dec.R" ,"sumP" ,"annualT")
+colnames(out) <- nombres
+out <- out[-38,] 
+out$site <- site.name 
+
+columnames <- c("site","lat", "long", "mTDec", "mTJan", "mTFeb", "mTMar", "mTApr", "mTMay", "mTJun", "mTJul", "mTAug", "mTSep", "mTOct", "mTNov", "mTDec", "sdTDec", "sdTJan", "sdTFeb", "sdTMar", "sdTApr", "sdTMay", "sdTJun", "sdTJul", "sdTAug", "sdTSep", "sdTOct", "sdTNov", "sdTDec", "mPDec", "mPJan", "mPFeb", "mPMar", "mPApr", "mPMay", "mPJun", "mPJul", "mPAug", "mPSep", "mPOct", "mPNov", "mPDec", "sdPDec", "sdPJan", "sdPFeb", "sdPMar", "sdPApr", "sdPMay", "sdPJun", "sdPJul", "sdPAug", "sdPSep", "sdPOct", "sdPNov", "sdPDec", "dec.R", "jan.R", "feb.R", "mar.R", "abr.R", "may.R", "jun.R", "jul.R", "ago.R", "sep.R", "oct.R", "nov.R", "dec.R" ,"sumP" ,"annualT")
+
+sitedata <- out
+dummy <- data.frame(out[,c(13,25,37,49,61)])
+sitedata <- cbind(sitedata, dummy)
+sitedata <- cbind(sitedata, lat = lat, long = long)
+sitedata <- sitedata[,c(1,69,70,64,2:13,65,14:25,66,26:37,67,38:49,68,50:63)]
+names(sitedata) <- columnames
+
+mypath <- setwd("G:/Mi unidad/2018_Redes/Trabajo_JavierOrtega/CorrerForclim/Tesis/Climate_tesis")
+
+write.table(sitedata, file = "ClimaticParameters_sites_transect_v5.txt", sep = "\t", col.names = TRUE) #Exportar CPS en un archivo .txt
+
+
+```
+
