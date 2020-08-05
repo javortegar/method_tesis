@@ -1,0 +1,372 @@
+---
+title: "Parametrizacion_bioclimatica_especies"
+author: "Javier Ortega"
+date: "August 4, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+  # METODOS
+
+En primer lugar, se incluyó un conjunto de 29 especies de árboles dominantes para la ecorregión Valdiviana en el modelo, para las cuales se recopiló información especie-específica, mediante la realización de una búsqueda bibliográfica comprensiva, principalmente en base al trabajo de Gutiérrez y Huth (2012); acerca de la autoecología de las especies seleccionadas con énfasis en la tolerancia a la sombra, la altura máxima, y los requerimientos lumínicos mínimos para el reclutamiento. Esta información es requerida por el modelo para ser utilizada como parámetros especie-específicos (Bugmann y Solomon, 2000). Además, se realizó una consulta con expertos en ecología de especies arbóreas de Chile para corroborar y validar los valores recopilados. La selección de los parámetros especie-específicos se realizó siguiendo los métodos de Bugmann (1994). Finalmente, los valores fueron revisados según los parámetros de especies arbóreas utilizados para correr exitosamente simulaciones del modelo en otros bosques templados del mundo (Bugmann y Cramer, 1998). 
+
+## PARAMETRIZACION BIOCLIMATICA DE ESPECIES
+
+Se realizó la parametrizacion de las tolerancias bioclimaticas de las especies arboreas dominantes para el area de estudio recurriendo a los rangos de distribucion potencial de cada especie descritos por Luebert y Pliscoff (2017), generando un mapa raster con una resolucion espacial de 5 km para cada una de las especies incluidas en las simulaciones, para finalmente generar sobre cada uno de dichos mapas por especie un total de 1000 puntos aleatorios. Por ultimo, se filtraron los puntos que se repetian dentro de la misma celda para cada uno de los mapas de distribucion del conjunto de especies incluidas, buscando representar de forma equitativa la totalidad de la superficie del rango de distribucion potencial de cada especie dejando solo un punto por celda. De esa forma, se busco evitar el sesgo que puede tener en la estimacion de los parametros de tolerancia bioclimatica repetir la misma informacion para una misma celda al coincidir dos o más puntos en esta.
+
+
+
+```{r pressure, echo=FALSE}
+
+maps.path <- "G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Pisos vegetacionales/Mapas_spp/localmet5"
+mapas <- list.files(maps.path, pattern = ".tif$")
+
+pisos <- readOGR("G:/Mi unidad/MODELADORES_FORCLIM/data/2020/Mapas/Pisos_vegetacionales/Presencia_especies_v2/pisos_vegetacionales_crop_v2.shp")
+
+cr2 <- raster("G:/Mi unidad/MODELADORES_FORCLIM/data/2019/datos_CR2MET/ppmensual/pp_1979_01.tif") #Cargar cualquier capa de cr2met
+cr2 <- crop(cr2,pisos)
+
+data <- read.csv("G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Parametrizacion/Limites_Bioclimaticos/Datos/ptos_spp_distribution_tesis_local.csv", header=TRUE) #A?adir coordenadas de puntos de distribucion de especies
+spp <- unique(as.character(data$specie))
+
+st_map <- read.csv("G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Pisos vegetacionales/estadisticas_mapas_dominio_local.csv")
+
+df <- pisos@data
+out<-NULL
+for (p in 1:length(spp)){
+  r <- NULL
+  for (j in 5:length(df[1,])){
+    dummy <- which(df[,j] == spp[p])
+    r <- c(r, dummy)
+  }
+  
+  r <- sort(r)
+  
+  #spp_area <- pisos[r,]
+  rast_area <- raster(file.path(maps.path, mapas[p]))
+  values(rast_area)[values(rast_area)<st_map$met5[p]] = NA
+  values(rast_area)[values(rast_area)>=st_map$met5[p]] = 1
+  
+  spp_area <- rasterToPolygons(rast_area, dissolve = T)
+  spp_name <- spp[p]
+  cat('>>>>> specie:',spp_name,"\n")
+  
+  if (is.null(spp_area) == TRUE){
+    pts <- NULL
+    out <- out
+    } else {
+      pts <- as.data.frame(spsample(spp_area,1000,"random"))
+      out <- rbind(out, cbind(pts, SPP=spp_name))
+    }
+}
+
+coordinates(out)<-~x+y # whatever the equivalent is in your 
+# SET the CRS of the object
+proj4string(out) <- CRS('+proj=longlat +ellps=WGS84 +datum=WGS84')
+
+#plot(out, pch=16)
+
+#seleccionar 3 puntos por piso y por celda de mapa estratificado CR2
+
+out@data <- cbind(out@data, out@coords)
+
+out3 <- NULL
+for (i in 1:length(spp)){
+subdata <- subset(out@data, out@data$SPP == spp[i])
+coordinates(subdata) <- ~x+y
+#numero_raster <- as.matrix (cellFromXY(cr2, out@coords))
+numero_raster <- as.matrix (cellFromXY(cr2, subdata@coords))
+#LonLat_numero_raster <- cbind(out@coords, numero_raster, out@data)
+LonLat_numero_raster <- cbind(subdata@coords, numero_raster, subdata@data)
+ix <- which(duplicated(LonLat_numero_raster[,3])==TRUE)
+if (length(ix) == 0){
+  ptos_spp <- LonLat_numero_raster
+  } else {
+    ptos_spp <-LonLat_numero_raster[-ix,]
+    out3 <- rbind(out3, ptos_spp)
+}
+}
+
+table(out3$SPP)
+
+result.path <- "G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Pisos vegetacionales/Distribucion_spp/CR2_localmet5"
+write.csv(out3, file.path(result.path,"1000points_potential_map.csv"))
+coordinates(out3)<-~x+y # whatever the equivalent is in your 
+# SET the CRS of the object
+proj4string(out3) <- CRS('+proj=longlat +ellps=WGS84 +datum=WGS84')
+#out4 <- spTransform(out4, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84"))
+writeOGR(out3, result.path, "1000points_localmet5", driver="ESRI Shapefile") 
+```
+
+
+Posteriormente, se extrajo desde las bases de datos climaticas CR2Met v1.3 del Centro de Ciencia del Clima y la Resiliencia (CR2) y el reanalisis atmosferico de ERA5-Land del Copernicus Climate Change Service (C3S) (2019), en conjunto con el mapa raster de Bucket size (i.e. disponibilidad de agua del suelo para las plantas) la información climática relacionada con la precipitación mensual, temperatura media mensual y la humedad aprovechable de los suelos presentes en los diferentes mapas de distribucion potencial. Lo cual permitio estimar los parametros que definen las tolerancias bioclimaticas para cada punto dentro del rango de distribucion de cada una de las especies incluidas: la tolerancia a la sequía (kDrTol), mínima de días-grados (kDDMin), temperatura mínima de invierno (kWiTN) y temperatura máxima de invierno (kWiTX).
+
+
+```{r pressure, echo=FALSE}
+
+rm(list=ls())
+
+library(sp)
+library(raster)
+library(rgdal)
+
+############### agrupar en stacks mensuales los rasters de precipitaci?n y de temperatura (m?xima y m?nima)
+
+mypath <- "G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/CorrerForclim/Tesis/Climate_tesis/datos_CR2/ppmensual"
+
+list.month.ppt <- list()
+list.ppt <- list.files(mypath, pattern = ".tif$")
+for (j in 1:12){
+  dummy <- as.vector(seq(from=(j), to = (38*12), by=12))
+  k <- list.ppt[dummy]
+  stack_month <- unlist(stack(file.path(mypath, k))) #stack temporal que var?a de mes a mes
+  list.month.ppt[[j]] <- stack_month
+}
+
+
+
+mypath <- "G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/CorrerForclim/Tesis/Climate_tesis/datos_CR2/tmax_mensual"
+
+list.month.tmax <- list()
+list.tmax <- list.files(mypath, pattern = ".tif$")
+for (j in 1:12){
+  dummy <- as.vector(seq(from=(j), to = (38*12), by=12))
+  k <- list.tmax[dummy]
+  stack_month <- unlist(stack(file.path(mypath, k))) #stack temporal que var?a de mes a mes
+  list.month.tmax[[j]] <- stack_month
+}
+
+mypath <- "G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/CorrerForclim/Tesis/Climate_tesis/datos_CR2/tminmensual"
+
+list.month.tmin <- list()
+list.tmin <- list.files(mypath, pattern = ".tif$")
+for (j in 1:12){
+  dummy <- as.vector(seq(from=(j), to = (38*12), by=12))
+  k <- list.tmin[dummy]
+  stack_month <- unlist(stack(file.path(mypath, k))) #stack temporal que var?a de mes a mes
+  list.month.tmin[[j]] <- stack_month
+}
+
+
+################ generar estructura de base de datos + indicar coordenadas para extraer valores
+
+
+mypath <- "G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Pisos vegetacionales/Distribucion_spp/CR2_localmet5"
+
+a?os <- as.numeric(1979:2016)
+meses <- as.numeric(1:12)
+
+data <- read.csv(file.path(mypath, "1000points_potential_map.csv"), header=TRUE) #A?adir coordenadas de puntos de distribucion de especies
+
+lat <- as.numeric(data$y)
+long <- as.numeric(data$x)
+spp <- as.character(data$SPP)
+
+coord <- as.data.frame(rbind(lat, long))
+
+spp_coord <- rbind(spp, coord)
+
+firstrows <- c("year", "year","year", "month", "month", "month") 
+datos.ppt <- as.data.frame(matrix(firstrows, nrow= 3, ncol = 2), stringsAsFactors=FALSE)
+
+a <- as.data.frame(NULL)
+
+for (j in 1:length(a?os)){
+  dummy <- cbind(rep(a?os[j], 12), V2=meses)
+  a <- rbind(a, dummy)
+}
+
+datos.ppt <- rbind(datos.ppt, a)
+
+for (i in 1:length(spp_coord[1,])){
+  dummy <- spp_coord[,i]
+  datos.ppt <- cbind(datos.ppt, as.character(dummy))
+  datos.ppt[,i+2] <- as.character(datos.ppt[,i+2])
+}
+
+coord <- as.data.frame(cbind(long, lat))
+
+columnames <- c(sprintf("point0%d",seq(1:9)), sprintf("point%d",seq(from = 10, to= length(coord[,1]))))
+columnames <- c("year", "month", columnames)
+names(datos.ppt) <- columnames
+
+#####Extraer los valores de precipitaci?n y pasarlos a un data frame
+
+Npoint <- c(sprintf("0%d",seq(1:9)), seq(from=10, to = length(coord[,1])))
+
+for (i in 1:12){
+  ppt.monthly <- extract(list.month.ppt[[i]],coord[1:length(Npoint),])  
+  rows <- seq(from=i, to = length(a?os)*length(meses), by=12)
+  dummy <- data.frame(Npoint)
+  dummy <- cbind(dummy, coord[1:length(Npoint),])
+  dummy <- cbind(dummy, as.data.frame(ppt.monthly)) #COMO HACER Q IMPRIMA EN EL 1, 13, 25 etc.
+  for (k in 1:length(Npoint)){
+    ppt_temp <- as.numeric(dummy[k,4:length(dummy[1,])])
+    datos.ppt[rows+3,k+2] <- ppt_temp
+  }
+}
+
+
+
+datos.T <- as.data.frame(matrix(firstrows, nrow= 3, ncol = 2), stringsAsFactors=FALSE)
+
+datos.T <- rbind(datos.T, a)
+
+for (i in 1:length(spp_coord[1,])){
+  dummy <- spp_coord[,i]
+  datos.T <- cbind(datos.T, dummy)
+  datos.T[,i+2] <- as.character(datos.T[,i+2])
+}
+
+names(datos.T) <- columnames
+
+for (i in 1:12){
+  tmax.monthly <- extract(list.month.tmax[[i]],coord[1:length(Npoint),])  
+  tmin.monthly <- extract(list.month.tmin[[i]],coord[1:length(Npoint),])
+  tmean.monthly <- (tmax.monthly+tmin.monthly)/2
+  rows <- seq(from=i, to = length(a?os)*length(meses), by=12)
+  dummy <- data.frame(Npoint)
+  dummy <- cbind(dummy, coord[1:length(Npoint),])
+  dummy <- cbind(dummy, as.data.frame(tmean.monthly))
+  for (k in 1:length(Npoint)){
+    tmean_temp <- as.numeric(dummy[k,4:length(dummy[1,])])
+    datos.T [rows+3,k+2] <- tmean_temp
+  }
+}
+
+discard <- which(is.na(datos.T[4,])) #Aquellas columnas que no poseen datos 
+datos.T <- datos.T[,-(discard)]
+datos.ppt <- datos.ppt[,-(discard)]
+
+mypath <- "G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Pisos vegetacionales/Distribucion_spp/CR2_localmet1"
+
+
+write.csv(datos.ppt[,-discard], row.names=FALSE, file= file.path(mypath,'sites_spp_distribution_local_monthly_cr2met_precip.1976.2016.csv'))
+#write.csv(datos.ppt, row.names=FALSE, file= file.path(mypath,'sites_spp_distribution_local_monthly_cr2met_precip.1976.2016.csv'))
+
+write.csv(datos.T[-discard], row.names=FALSE, file= file.path(mypath, 'sites_spp_distribution_local_monthly_cr2met_tmean.1976.2016.csv'))
+#write.csv(datos.T, row.names=FALSE, file= file.path(mypath, 'sites_spp_distribution_local_monthly_cr2met_tmean.1976.2016.csv'))
+
+
+
+```
+
+
+Por ultimo, la determinacion de los parametros especie-especifico de las tolerancias bioclimaticas se realizo utilizando valores umbrales de corte a la curva de densidad de probabilidad de los valores de los parametros  al interior del rango de distribucion potencial de cada especie. Definiendo de esta manera los siguientes percentiles como valores umbrales: temperatura media máxima de invierno (90%), valor máximo de tolerancia a la sequía (95%), temperatura media mínima de invierno (10%), y cantidad mínima de días-grados (10%).
+
+```{r pressure, echo=FALSE}
+
+rm(list=ls())
+
+result_path<-"G:/Mi unidad/MODELADORES_FORCLIM/Trabajo_JavierOrtega/Pisos vegetacionales/Distribucion_spp/CR2_localmet5"
+#setwd(result_path)
+
+library('logspline')
+
+data <- read.csv(file.path(result_path,"forclim_inputdata_localmet5.csv"))
+
+mi.lista.sp <- c("AEPU","AMLU","AMME", "AUCH", "CAPA", "DADI", "DRWI", "EMCO", "EUCO", "FICU", 
+                 "GEAV", "LAPH", "LASE", "LOFE", "LOHI", "LUAP", "MYOV", "MYPL", "NOAN",
+                 "NOBE","NODO","NONE", "NONI", "NOOB", "NOPU", "PELI", "PIUV","PONU","POSA", "SACO",
+                 "TEST","WETR")
+SPPLIST <- mi.lista.sp
+
+Ndata <- NULL
+
+for (i in 1:length(SPPLIST)){
+  N <- subset(data, data$sp==SPPLIST[i])
+  N <- nrow(N)
+  
+  dummy <- cbind(sp = SPPLIST[i], N)
+  
+  Ndata <- as.data.frame(rbind(Ndata, dummy))
+  Ndata$sp <- as.character(Ndata$sp)
+  Ndata$N <- as.numeric(as.character(Ndata$N))
+}
+
+
+out.final <- NULL
+
+#########################################################################
+# CALCULO DEL L?MITE DE UNA VARIABLE PARA UNA ESPECIE
+SPPLIST <- mi.lista.sp
+
+out.kminDDAn <- NULL
+for (i in 1:length(SPPLIST)){
+  esta_sp <- subset(data,data$sp == SPPLIST[i])
+  
+  if (length(esta_sp[,1]) < 10){
+    kminDDAn <- quantile(esta_sp$minDDAn, 0.1)
+    out.kminDDAn <- rbind(out.kminDDAn, kminDDAn)
+  }
+  else {
+  fit <- logspline(esta_sp$minDDAn)
+  kminDDAn <- qlogspline(0.1,fit)
+  out.kminDDAn <- rbind(out.kminDDAn, kminDDAn)
+  }  
+  
+}
+
+#######################################################
+# kDrAn
+
+
+out.kDrAn <- NULL
+
+for (i in 1:length(SPPLIST)){
+  esta_sp <- subset(data, sp == SPPLIST[i])
+  if (length(esta_sp[,1]) < 10){
+      kDrAn <- quantile(na.omit(esta_sp$DrAn, 0.95)) #Usar 95% o 99% ?
+      out.kDrAn <- rbind(out.kDrAn, kDrAn)
+      
+    }else {
+  fit <- logspline(esta_sp$DrAn)
+  kDrAn <- qlogspline(0.95, fit)
+  out.kDrAn <- rbind(out.kDrAn, kDrAn)
+}  
+}
+
+##########################################################
+# kWiTN
+
+out.kWiTN <- NULL
+for (i in 1:length(SPPLIST)){
+  esta_sp <- subset(data, sp == SPPLIST[i])
+  if (length(esta_sp[,1]) < 10){
+    kWiTN <- quantile(esta_sp$WiTN, 0.1)
+    out.kWiTN <- rbind(out.kWiTN, kWiTN)
+  }
+  
+  else {
+  fit <- logspline(esta_sp$WiTN)
+  kWiTN <- qlogspline(0.1, fit)
+  out.kWiTN <- rbind(out.kWiTN, kWiTN)
+  }  
+}
+
+##########################################################
+# kWiTX
+out.kWiTX <- NULL
+for (i in 1:length(SPPLIST)){
+  esta_sp <- subset(data, sp == SPPLIST[i])
+  if (length(esta_sp[,1]) < 10){
+    kWiTX <-quantile(esta_sp$WiTX, 0.9)
+    out.kWiTX <- rbind(out.kWiTX, kWiTX)
+  }
+  else{
+  
+  fit <- logspline(esta_sp$WiTX)
+  kWiTX <- qlogspline(0.9, fit)
+  out.kWiTX <- rbind(out.kWiTX, kWiTX)
+  }
+}
+
+out.final <- cbind(SPPLIST, out.kDrAn, out.kminDDAn, out.kWiTN, out.kWiTX)
+colnames(out.final) <- c("sp", "kDrAn", "kminDDAn", "kWiTN", "kWiTX")
+write.csv(out.final, "percentil_bioclimParam_localmet5.csv", row.names = FALSE)
+
+```
+
