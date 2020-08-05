@@ -15,8 +15,9 @@ En primer lugar, se incluyó un conjunto de 29 especies de árboles dominantes p
 
 ## PARAMETRIZACION BIOCLIMATICA DE ESPECIES
 
-Se realizó la parametrizacion de las tolerancias bioclimaticas de las especies arboreas dominantes para el area de estudio recurriendo a los rangos de distribucion potencial de cada especie descritos por Luebert y Pliscoff (2017), generando un mapa raster con una resolucion espacial de 5 km para cada una de las especies incluidas en las simulaciones, para finalmente generar sobre cada uno de dichos mapas por especie un total de 1000 puntos aleatorios. Por ultimo, se filtraron los puntos que se repetian dentro de la misma celda para cada uno de los mapas de distribucion del conjunto de especies incluidas, buscando representar de forma equitativa la totalidad de la superficie del rango de distribucion potencial de cada especie dejando solo un punto por celda. De esa forma, se busco evitar el sesgo que puede tener en la estimacion de los parametros de tolerancia bioclimatica repetir la misma informacion para una misma celda al coincidir dos o más puntos en esta.
+Como primer paso se definió el dominio espacial del análisis, a través de la intersección mediante el uso de SIG de los siguientes elementos: los pisos vegetacionales basado en el shapefile de Luebert y Pliscoff (2017), los tipos de clima bajo la clasificación climática de Köppen 1976-2000 a escala mundial (Rubel and Kottek, 2010) y la vegetación arbórea de Argentina, según el shapefile del Instituto Geográfico Nacional (IGN) de Argentina. No fueron consideradas aquellas categorías que no estuvieran presentes a lo largo del transecto para cada uno de los elementos utilizados para delimitar el dominio espacial. Por último, se utilizó el límite sur de la Isla grande de Chiloé (alrededor de 43°S) como corte para reducir la extensión del dominio espacial hacia latitudes más australes.
 
+Luego, se realizó la parametrizacion de las tolerancias bioclimaticas de las especies arboreas dominantes para el area de estudio recurriendo a los rangos de distribucion potencial de cada especie descritos por Luebert y Pliscoff (2017), generando un mapa raster con una resolucion espacial de 5 km para cada una de las especies incluidas en las simulaciones que fue cortado a la extensión del dominio espacial del análisis, para finalmente generar sobre cada uno de dichos mapas por especie un total de 1000 puntos aleatorios. Por ultimo, se filtraron los puntos generados que se repetian dentro de la misma celda para cada uno de los mapas de distribucion de especies incluidas, permitiendo representar de forma equitativa la totalidad de la superficie del rango de distribucion potencial de cada especie dejando solo un punto por celda. De esa forma, se busco evitar el sesgo que puede tener en la estimacion de los parametros de tolerancia bioclimatica repetir la misma informacion para una misma celda al coincidir dos o más puntos en esta.
 
 
 ```{r pressure, echo=FALSE}
@@ -370,3 +371,10 @@ write.csv(out.final, "percentil_bioclimParam_localmet5.csv", row.names = FALSE)
 
 ```
 
+
+
+Rubel, F., and M. Kottek, 2010: Observed and projected climate shifts 1901-2100 depicted by world maps of the Köppen-Geiger climate classification. Meteorol. Z., 19, 135-141. DOI: 10.1127/0941-2948/2010/0430.
+http://koeppen-geiger.vu-wien.ac.at/shifts.htm
+
+
+"Clasificación Climática de Köppen (1936)"
