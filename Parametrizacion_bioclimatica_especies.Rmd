@@ -15,10 +15,9 @@ En primer lugar, se incluyó un conjunto de 29 especies de árboles dominantes p
 
 ## PARAMETRIZACION BIOCLIMATICA DE ESPECIES
 
-Como primer paso se definió el dominio espacial del análisis, a través de la intersección mediante el uso de SIG de los siguientes elementos: los pisos vegetacionales basado en el shapefile de Luebert y Pliscoff (2017), los tipos de clima bajo la clasificación climática de Köppen 1976-2000 a escala mundial (Rubel and Kottek, 2010) y la vegetación arbórea de Argentina, según el shapefile del Instituto Geográfico Nacional (IGN) de Argentina. No fueron consideradas aquellas categorías que no estuvieran presentes a lo largo del transecto para cada uno de los elementos utilizados para delimitar el dominio espacial. Por último, se utilizó el límite sur de la Isla grande de Chiloé (alrededor de 43°S) como corte para reducir la extensión del dominio espacial hacia latitudes más australes.
+Se partió por definir el dominio espacial para caracterizar las tolerancias bioclimáticas de las especies. Este dominio se definió a través de la intersección mediante el uso de SIG de los siguientes elementos: los pisos vegetacionales basado en el shapefile de Luebert y Pliscoff (2017), los tipos de clima bajo la clasificación climática de Köppen 1976-2000 a escala mundial (Rubel and Kottek, 2010) y la vegetación arbórea de Argentina, según el shapefile del Instituto Geográfico Nacional (IGN) de Argentina. No fueron consideradas aquellas categorías que no estuvieran presentes a lo largo del transecto para cada uno de los elementos utilizados para delimitar el dominio espacial. Por último, se utilizó el límite sur de la Isla grande de Chiloé (alrededor de 43°S) como corte para reducir la extensión del dominio espacial hacia latitudes más australes.
 
-Luego, se realizó la parametrizacion de las tolerancias bioclimaticas de las especies arboreas dominantes para el area de estudio recurriendo a los rangos de distribucion potencial de cada especie descritos por Luebert y Pliscoff (2017), generando un mapa raster con una resolucion espacial de 5 km para cada una de las especies incluidas en las simulaciones que fue cortado a la extensión del dominio espacial del análisis, para finalmente generar sobre cada uno de dichos mapas por especie un total de 1000 puntos aleatorios. Por ultimo, se filtraron los puntos generados que se repetian dentro de la misma celda para cada uno de los mapas de distribucion de especies incluidas, permitiendo representar de forma equitativa la totalidad de la superficie del rango de distribucion potencial de cada especie dejando solo un punto por celda. De esa forma, se busco evitar el sesgo que puede tener en la estimacion de los parametros de tolerancia bioclimatica repetir la misma informacion para una misma celda al coincidir dos o más puntos en esta.
-
+Luego, la parametrizacion de las tolerancias bioclimaticas de las especies incluidas en la simulación consistió en extraer los valores que adoptan estos parámetros asociados dentro de la distribución geográfica de cada especie. Para ello, se partió recurriendo a los rangos de distribucion geográfica potencial descritos por Luebert y Pliscoff (2017), generando un mapa raster con la resolución espacial de la grilla climática para cada una de las especies incluidas en las simulaciones, los cuales fueron posteriormente acotados a la extensión del dominio espacial del análisis. Cada mapa ráster de distribución geográfica por especie se generó de manera que contuviese los valores de cobertura que la distribución geográfica presenta en cada una de las celdas, en términos porcentuales. Lo cual generó distintas delimitaciones de distribución potencial de una especie dada, debido a que se consideró solo aquellas celdas con valores igual o mayor a los siguientes tres umbrales de corte: (1) el percentil 10% de los valores de cobertura de cada mapa ráster de distribución geográfica, (2) el promedio del valor mínimo con la mediana de cobertura, (3) y la mediana de los valores de cobertura. Se generaron 1000 puntos aleatorios sobre cada uno de dichos mapas por especie y se filtraron los puntos aleatorios que se repetian dentro de una misma celda para cada uno de los mapas de distribucion por especie, permitiendo representar de forma equitativa la totalidad de la superficie del rango de distribucion potencial de cada especie dejando solo un punto por celda. De esa forma, se busco evitar el sesgo que puede tener en la estimacion de los parametros de tolerancia bioclimatica extraer mas de una vez la misma informacion para una misma celda, al coincidir dos o más puntos en esta.
 
 ```{r pressure, echo=FALSE}
 
@@ -103,7 +102,7 @@ writeOGR(out3, result.path, "1000points_localmet5", driver="ESRI Shapefile")
 ```
 
 
-Posteriormente, se extrajo desde las bases de datos climaticas CR2Met v1.3 del Centro de Ciencia del Clima y la Resiliencia (CR2) y el reanalisis atmosferico de ERA5-Land del Copernicus Climate Change Service (C3S) (2019), en conjunto con el mapa raster de Bucket size (i.e. disponibilidad de agua del suelo para las plantas) la información climática relacionada con la precipitación mensual, temperatura media mensual y la humedad aprovechable de los suelos presentes en los diferentes mapas de distribucion potencial. Lo cual permitio estimar los parametros que definen las tolerancias bioclimaticas para cada punto dentro del rango de distribucion de cada una de las especies incluidas: la tolerancia a la sequía (kDrTol), mínima de días-grados (kDDMin), temperatura mínima de invierno (kWiTN) y temperatura máxima de invierno (kWiTX).
+Posteriormente, se extrajo desde las bases de datos climaticas CR2Met v1.3 del Centro de Ciencia del Clima y la Resiliencia (CR2) y el reanalisis atmosferico de ERA5-Land del Copernicus Climate Change Service (C3S) (2019), en conjunto con el mapa raster de Bucket size (i.e. disponibilidad de agua del suelo para las plantas) la información climática relacionada con la precipitación mensual, temperatura media mensual y la humedad aprovechable de los suelos presentes en los diferentes mapas de distribucion geográfica potencial por especie. Lo cual permitio estimar los parametros que definen las tolerancias bioclimaticas para cada punto dentro del rango de distribucion de cada una de las especies incluidas, i.e. los parámetros especie-específicos acerca del valor máximo de tolerancia a la sequía (kDrTol), cantidad mínima de días-grados (kDDMin), temperatura media mínima de invierno (kWiTN) y temperatura media máxima de invierno (kWiTX).
 
 
 ```{r pressure, echo=FALSE}
@@ -256,7 +255,7 @@ write.csv(datos.T[-discard], row.names=FALSE, file= file.path(mypath, 'sites_spp
 ```
 
 
-Por ultimo, la determinacion de los parametros especie-especifico de las tolerancias bioclimaticas se realizo utilizando valores umbrales de corte a la curva de densidad de probabilidad de los valores de los parametros  al interior del rango de distribucion potencial de cada especie. Definiendo de esta manera los siguientes percentiles como valores umbrales: temperatura media máxima de invierno (90%), valor máximo de tolerancia a la sequía (95%), temperatura media mínima de invierno (10%), y cantidad mínima de días-grados (10%).
+Por ultimo, la determinacion de los parametros especie-especifico de las tolerancias bioclimaticas se realizo utilizando valores umbrales de corte a la curva de densidad de probabilidad de los valores que posee cada parámetro al interior del rango de distribucion potencial de cada especie. Definiendo de esta manera los siguientes percentiles como valores umbrales: temperatura media máxima de invierno (90%), valor máximo de tolerancia a la sequía (95%), temperatura media mínima de invierno (10%), y cantidad mínima de días-grados (10%).
 
 ```{r pressure, echo=FALSE}
 
@@ -371,10 +370,19 @@ write.csv(out.final, "percentil_bioclimParam_localmet5.csv", row.names = FALSE)
 
 ```
 
+Bugmann, H.K.M. 1994. On the Ecology of Mountainous Forests in a Changing Climate: A Simulation Study. ETH Zurich.
 
+Bugmann, H. K. M. y W. Cramer. 1998. Improving the behavior of forest gap models along gradients. Forest Ecology and Management 103: 247–263.
+
+Bugmann, H.K.M. y A.M. Solomon. 2000. Explaining forest composition and biomass across multiple biogeographical regions.
+
+Gutiérrez, A.G. y A. Huth. 2012. Successional stages of primary temperate rainforests of Chiloé Island, Chile. Perspectives in Plant Ecology, Evolution and Systematics 14 (4): 243–256.
+
+Luebert, F. y P. Pliscoff. 2017. Sinopsis bioclimática y vegetacional de Chile, 2ª edición. Editorial Universitaria. Santiago.
 
 Rubel, F., and M. Kottek, 2010: Observed and projected climate shifts 1901-2100 depicted by world maps of the Köppen-Geiger climate classification. Meteorol. Z., 19, 135-141. DOI: 10.1127/0941-2948/2010/0430.
 http://koeppen-geiger.vu-wien.ac.at/shifts.htm
 
+Instituto Geográfico Nacional (IGN) de Argentina. (PÁGINA WEB)
 
 "Clasificación Climática de Köppen (1936)"
