@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## PARAMETRIZACION CLIMATICA DE LOS SITIOS DE SIMULACION
 
-1. Se utilizaron bases de datos climáticos grillados (e.g. ERA5-Land y CR2Met) correspondientes a los registros mensuales de temperatura media y precipitación acumulada, los que a través de una grilla climática con una resolución espacial de 5 km para CR2Met y de 0.01° (11 km apróx.) para ERA5-Land, permitieron determinar los valores de precipitación y temperatura para el transecto longitudinal, describiendo estas variables del clima tanto para el territorio nacional como para el territorio argentino. El cálculo de los parámetros climáticos se realizó para un rango de 37 años, desde el año 1979 hasta el 2016.
+1. Se utilizaron bases de datos climáticos grillados (e.g. ERA5-Land y CR2Met) correspondientes a los registros mensuales de temperatura media y precipitación acumulada, los que a través de una grilla climática con una resolución espacial de 5 km para CR2Met y de 9 km para ERA5-Land, permitieron determinar los valores de precipitación y temperatura para el transecto longitudinal, describiendo estas variables del clima tanto para el territorio nacional como para el territorio argentino. El cálculo de los parámetros climáticos se realizó para un rango de 37 años, desde el año 1979 hasta el 2016.
 
 La obtención de datos climáticos para la parte del transecto longitudinal presente en territorio argentino fue realizada a través de una interpolación espacial de registros de estaciones meteorológicas, debido a la ausencia de cobertura de datos para la grilla climática del CR2Met en las afueras del territorio nacional. Se obtuvieron series mensuales de temperatura media y precipitacion acumulada desde la plataforma del Sistema Nacional de Informacion Hidrica (SNIH) del Ministerio de Obras Publicas del Gobierno de Argentina. Se georreferenciaron las estaciones meteorologicas con disponibilidad de datos, permitiendo realizar una interpolación espacial en formato raster de la precipitación media mensual y la temperatura media mensual para el tramo del transecto longitudinal presente en Argentina. Este procedimiento se repitió para cada mes desde Enero a Diciembre y para cada variable de interés (i.e. temperatura media mensual y precipitación media mensual) solamente para la grilla del CR2Met.
 
@@ -292,4 +292,8 @@ write.table(sitedata, file = "ClimaticParameters_sites_transect_v5.txt", sep = "
 
 
 ```
+
+Copernicus Climate Change Service (C3S) (2019): C3S ERA5-Land reanalysis. Copernicus Climate Change Service.
+
+Plataforma del Sistema Nacional de Informacion Hidrica (SNIH) del Ministerio de Obras Publicas del Gobierno de Argentina.
 

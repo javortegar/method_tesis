@@ -102,8 +102,7 @@ writeOGR(out3, result.path, "1000points_localmet5", driver="ESRI Shapefile")
 ```
 
 
-Posteriormente, se extrajo desde las bases de datos climaticas CR2Met v1.3 del Centro de Ciencia del Clima y la Resiliencia (CR2) y el reanalisis atmosferico de ERA5-Land del Copernicus Climate Change Service (C3S) (2019), en conjunto con el mapa raster de Bucket size (i.e. disponibilidad de agua del suelo para las plantas) la información climática relacionada con la precipitación mensual, temperatura media mensual y la humedad aprovechable de los suelos presentes en los diferentes mapas de distribucion geográfica potencial por especie. Lo cual permitio estimar los parametros que definen las tolerancias bioclimaticas para cada punto dentro del rango de distribucion de cada una de las especies incluidas, i.e. los parámetros especie-específicos acerca del valor máximo de tolerancia a la sequía (kDrTol), cantidad mínima de días-grados (kDDMin), temperatura media mínima de invierno (kWiTN) y temperatura media máxima de invierno (kWiTX).
-
+Posteriormente, se extrajo desde las bases de datos climáticas CR2Met v1.3 del Centro de Ciencia del Clima y la Resiliencia (CR2) y el reanálisis atmosférico de ERA5-Land del Copernicus Climate Change Service (C3S) (2019) la información climática relacionada con la precipitación mensual y temperatura media mensual para cada punto. Además, se obtuvo la humedad aprovechable de los suelos, a partir de la caracterización de las series de suelo de CIREN (2003) que permitió determinar el parámetro de “bucket size” (kBS) requerido por el modelo (ver Ecuación 1, adaptado de Murillo y Chacolla (2010)), i.e. el agua disponible para las raíces de las plantas expresada en términos de cm; lo cual permitió caracterizar cada uno de los puntos presentes sobre los mapas de distribución geográfica potencial. Es así como fueron estimados los parámetros que definen las tolerancias bioclimáticas para cada punto dentro del rango de distribución de cada una de las especies incluidas, i.e. los parámetros especie-específicos correspondientes al valor máximo de tolerancia a la sequía (kDrTol), cantidad mínima de días-grados (kDDMin), temperatura media mínima de invierno (kWiTN) y temperatura media máxima de invierno (kWiTX).
 
 ```{r pressure, echo=FALSE}
 
@@ -376,9 +375,13 @@ Bugmann, H. K. M. y W. Cramer. 1998. Improving the behavior of forest gap models
 
 Bugmann, H.K.M. y A.M. Solomon. 2000. Explaining forest composition and biomass across multiple biogeographical regions.
 
+CIREN (Centro de Información de Recursos Naturales). 2003. Estudio Agrológico. Descripciones de suelos, materiales y símbolos. Publicación. X Región de Los Lagos.
+
 Gutiérrez, A.G. y A. Huth. 2012. Successional stages of primary temperate rainforests of Chiloé Island, Chile. Perspectives in Plant Ecology, Evolution and Systematics 14 (4): 243–256.
 
 Luebert, F. y P. Pliscoff. 2017. Sinopsis bioclimática y vegetacional de Chile, 2ª edición. Editorial Universitaria. Santiago.
+
+Murillo, M. y E. Chacolla. 2010. Agua disponible en los suelos del sud oeste de bolivia.
 
 Rubel, F., and M. Kottek, 2010: Observed and projected climate shifts 1901-2100 depicted by world maps of the Köppen-Geiger climate classification. Meteorol. Z., 19, 135-141. DOI: 10.1127/0941-2948/2010/0430.
 http://koeppen-geiger.vu-wien.ac.at/shifts.htm
